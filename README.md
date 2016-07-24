@@ -1,7 +1,7 @@
 # sweet-tensors
 ##Tensor index notation in javascript using sweet.js
 
-This sweet.js macro allows you to write javascript for loops through the power and simplicity of the [tensor index notation](https://en.wikipedia.org/wiki/Ricci_calculus).
+This sweet.js macro allows you to write javascript for loops using the power and simplicity of the [index notation](https://en.wikipedia.org/wiki/Ricci_calculus) used in tensor calculus.
 
 ###What is Index notation?
 
@@ -9,7 +9,7 @@ Not familiar with index notation? Observe:
 
     foo[i][j] = bar[i] + baz[j]
 
-This is the sort of code you normally expect to see inside a double for loop. You know that because you see there are two index variables, `i` and `j`. `i` is used to iterate through bar, and `j` is used to iterate through baz. The lower bound of `i` and `j` is 0. The upper bound of `i` and `j` is determined by the size of their respective arrays. For every value in bar and baz, we populate a cell in `foo` with their sum. Simple. You know all this right away and you never looked at a single for loop. You pieced it all together through convention and reasoning. The for loops are just formality.
+This is the sort of code you normally expect to see inside a double for loop. You know that because you see there are two index variables, `i` and `j`. `i` is used to iterate through bar, and `j` is used to iterate through baz. The lower bound of `i` and `j` is 0. The upper bound of `i` and `j` is determined by the size of their respective arrays. For every value in `bar` and `baz`, we populate a cell in `foo` with their sum. Simple. You know all this right away and you never looked at a single for loop. You pieced it all together through convention and reasoning. The for loops are just formality.
 
 Tensor index notation skips the formality. In tensor calculus, the "for loops" are implied by the index. There are a few other rules that govern its use in mathematics, but for our sake we will ignore them.
 
@@ -26,6 +26,32 @@ Expands to this:
 	    foo[i] = bar[i] + baz[j];
 	  }
 	}
+
+###Installation
+
+You will need to install the latest versions of nodejs (>4.x) and npm (>2.x) if you haven't done so already. You will also need to install the latest version of Sweet.js (>1.0) in your project directory using npm. Instructions on how to do so can be found in the [Sweet.js tutorial](http://sweetjs.org/doc/1.0/tutorial.html). 
+
+Once Sweet.js is installed in your project directory, you have several options on how to use sweet-tensors, as with any Sweet.js macro. 
+
+The simplest option is to copy the contents of sweet-tensors.sjs to the top of an existing file where you want to use the macro. When you want to transpile the macro, you would run the following command:
+
+	nodejs --harmony node_modules/.bin/sjs --module your-file.sjs js  > your-file.js;
+
+Here, "your-file.sjs" is the file you've copied the macro to.
+
+Another option is to copy sweet-tensors.sjs and setup a build process that concatenates the files and transpiles the result. The build process would look something like this:
+
+	mkfifo js;
+	cat sweet-tensors.sjs your-file.sjs > js &
+	nodejs --harmony node_modules/.bin/sjs --module sweet-tensors.sjs js  > your-file.js;
+
+Again replacing "your-file.sjs" with the file that uses the macro. You can see an example of this build process in the "demo.sjs" and "demo.sh" files included in the sweet-tensors project.
+
+If you're looking for more robust build tool, you may also consider the following options:
+
+- [broccoli-sweet](https://github.com/sindresorhus/broccoli-sweetjs)
+- [grunt-sweet](https://github.com/natefaubion/grunt-sweet.js)
+- [gulp-sweet](https://github.com/jlongster/gulp-sweetjs)
 
 ###Tutorial
 
@@ -86,10 +112,6 @@ You can use tensors to replicate most of the built in support for functional pro
 	// 		foo = bar.filter(filter_fn);
 	tensor 	if( filter_fn(bar[i]) ) foo.push( bar[i] );
 
-	// alternate to the above
-	var j = 0;
-	tensor 	if( filter_fn(bar[i]) ) foo[j++] = bar[i];
-
 	//      foo = bar.reduce(reduce_fn, 0);
 	var foo = 0;
 	tensor 	foo = reduce_fn( foo, bar[i] );
@@ -99,7 +121,7 @@ You can use tensors to replicate most of the built in support for functional pro
 
 In certain cases the tensor statements will be faster than the built in equivalents. The use of tensors will almost always be faster than using anonymous functions.
 
-Other built in methods can be replicated, as well. The practicality is questionable, but it does demonstrate just how versatile the macro can be.
+Other built in methods can be replicated, as well. The practicality is questionable, but it does demonstrate the macro's versatility.
 
 	// 		foo.fill(0);
 	tensor 	foo[i] = 0;
@@ -120,9 +142,34 @@ Other built in methods can be replicated, as well. The practicality is questiona
 	var foo = false;
 	tensor 	foo = foo || test_fn(foo[i]);
 
-It also allows you to easily import programming paradigms from other languages. Take for instance the [logical index vector](http://www.r-tutor.com/r-introduction/vector/logical-index-vector) in R:
+It also allows you to easily borrow paradigms from other languages. Take for instance the [logical index vector](http://www.r-tutor.com/r-introduction/vector/logical-index-vector) in R:
 
-	//		strings = ['a','b','c','d','e'];
-	//		bools 	= [false, true, false, true, false];
+	//		strings <- c('a','b','c','d','e');
+	var		strings = ['a','b','c','d','e'];
+	//		bools 	<- c(false, true, false, true, false);
+	var		bools 	= [false, true, false, true, false];
+	//		filtered <- strings[bools];
+	var 	filtered = [];
 	tensor 	if(bools[i]) filtered.push( strings[i] );
+
+The numeric index vector:
+	//		strings <- c('a','b','c','d','e');
+	var		strings = ['a','b','c','d','e'];
+	//		nums 	<- c(2, 3, 5);
+	var		nums 	= [2, 3, 5];
+	//		filtered <- strings[nums];
+	var 	filtered = [];
+	tensor 	filtered.push( strings[nums[i]] );
+
+Or the which() function:
+
+	var		bools 	= [false, true, false, true, false];
+	tensor 	if(bools[i]) which.push(i);
+
+And linear algebra is trivial, of course;
+
+	tensor 	a += b[i] * c[i]; 			// dot product
+	tensor 	a[i] = b[i] + c[i]; 		// addition
+	tensor 	a[j] += b[i][j] * c[i]; 	// matrix * vector
+	tensor 	a[i][k] += b[i][j] * c[j][k]; // matrix * matrix
 
