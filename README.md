@@ -3,13 +3,17 @@
 
 This sweet.js macro allows you to write javascript for loops using the power and simplicity of the [index notation](https://en.wikipedia.org/wiki/Ricci_calculus) used in tensor calculus.
 
+You can test the macro out for yourself using the [online editor](http://sweetjs.org/browser/editor.html#syntax%20tensor%20=%20function%20(ctx)%20%7B%0A%20%20let%20length_lookup%20=%20%7B%20%0A%20%20%20%20a:#%60la%60,%20b:#%60lb%60,%20c:#%60lc%60,%20d:#%60ld%60,%20e:#%60le%60,%20f:#%60lf%60,%20g:#%60lg%60,%20h:#%60lh%60,%20i:#%60li%60,%20%0A%20%20%20%20j:#%60lj%60,%20k:#%60lk%60,%20l:#%60ll%60,%20m:#%60lm%60,%20n:#%60ln%60,%20o:#%60lo%60,%20p:#%60lp%60,%20q:#%60lq%60,%20r:#%60lr%60,%20%0A%20%20%20%20s:#%60ls%60,%20t:#%60lt%60,%20u:#%60lu%60,%20v:#%60lv%60,%20w:#%60lw%60,%20x:#%60lx%60,%20y:#%60ly%60,%20z:#%60lz%60,%20%0A%20%20%7D;%0A%20%20let%20temp_variables%20=%20%5B%0A%20%20%20%20#%60$a%60,%20#%60$b%60,%20#%60$c%60,%20#%60$d%60,%20#%60$e%60,%20#%60$f%60,%20#%60$g%60,%20#%60$h%60,%20#%60$i%60,%20%0A%20%20%20%20#%60$j%60,%20#%60$k%60,%20#%60$l%60,%20#%60$m%60,%20#%60$n%60,%20#%60$o%60,%20#%60$p%60,%20#%60$q%60,%20#%60$r%60,%20%0A%20%20%20%20#%60$s%60,%20#%60$t%60,%20#%60$u%60,%20#%60$v%60,%20#%60$w%60,%20#%60$x%60,%20#%60$y%60,%20#%60$z%60,%20%0A%20%20%5D%0A%0A%20%20//%20check%20for%20any%20token%20that%20can%20belong%20to%20an%20indexible%20expression%0A%20%20//%20an%20indexible%20expression%20is%20for%20instance%20%22this.foo%5Bi%5D.getBar()%5Bj%5D%22%0A%20%20let%20isIndexible%20=%20function(token)%20%7B%0A%20%20%20%20return%20%20token.isBrackets()%20%7C%7C%20%0A%20%20%20%20%20%20%20%20%20%20%20%20token.isParens()%20%7C%7C%20%0A%20%20%20%20%20%20%20%20%20%20%20%20token.isIdentifier()%20%7C%7C%20%0A%20%20%20%20%20%20%20%20%20%20%20%20token.val()%20===%20'.';%0A%20%20%7D%0A%0A%20%20let%20isTensorIndex%20=%20function(token,%20subtokens)%20%7B%0A%20%20%20%20return%20%20token.isBrackets()%20&&%0A%20%20%20%20%20%20%20%20%20%20%20%20subtokens.length%20===%201%20&&%20%0A%20%20%20%20%20%20%20%20%20%20%20%20length_lookup%5Bsubtokens%5B0%5D.val()%5D%20!==%20void%200;%0A%20%20%7D%0A%0A%20%20let%20parse%20=%20function(ctx,%20indices,%20indices_to_arrays,%20global)%7B%0A%20%20%20%20global%20=%20global%20%7C%7C%20false;%0A%0A%20%20%20%20let%20token;%0A%20%20%20%20let%20tokens%20=%20%5B%5D;%0A%20%20%20%20let%20subtokens%20=%20%5B%5D;%0A%20%20%20%20let%20last_indexible%20=%20%5B%5D;%0A%0A%20%20%20%20while(token%20=%20ctx.next().value)%7B%0A%20%20%20%20%20%20%20%20//%20compile%20a%20list%20of%20tokens%20within%20this%20syntax%20level%0A%20%20%20%20%20%20%20%20tokens.push(token);%0A%0A%20%20%20%20%20%20%20%20//%20recursively%20process%20tokens%20within%20%5B%5D,%20(),%20or%20%7B%7D%0A%20%20%20%20%20%20%20%20if%20(token.isDelimiter())%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20subtokens%20=%20parse(token.inner(),%20indices,%20indices_to_arrays);%0A%20%20%20%20%20%20%20%20%7D%0A%0A%20%20%20%20%20%20%20%20//%20check%20for%20tensor%20index%20within%20%5B%5D%0A%20%20%20%20%20%20%20%20if%20(isTensorIndex(token,%20subtokens))%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20let%20index%20=%20subtokens%5B0%5D;%0A%20%20%20%20%20%20%20%20%20%20%20%20indices%5Bindex.val()%5D%20=%20index;%0A%20%20%20%20%20%20%20%20%20%20%20%20indices_to_arrays%5Bindex.val()%5D%20=%20last_indexible.slice(0);%0A%20%20%20%20%20%20%20%20%7D%0A%0A%20%20%20%20%20%20%20%20//%20compile%20a%20list%20of%20array%20values%20formed%20over%20multiple%20tokens,%0A%20%20%20%20%20%20%20%20//%20%20e.g.%20this.foo%5Bi%5D.getBar()%5Bj%5D%0A%20%20%20%20%20%20%20%20if%20(isIndexible(token))%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20last_indexible.push(token);%0A%20%20%20%20%20%20%20%20%7D%20else%20%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20last_indexible%20=%20%5B%5D;%0A%20%20%20%20%20%20%20%20%7D%0A%20%20%20%20%20%20%20%20%0A%20%20%20%20%20%20%20%20//%20break%20if%20we%20are%20not%20inside%20a%20delimiter%20and%20%0A%20%20%20%20%20%20%20%20//%20%20we've%20reached%20the%20end%20of%20the%20statement%0A%20%20%20%20%20%20%20%20//%20currently,%20';'%20is%20the%20only%20way%20we%20can%20detect%20this%20-%20%0A%20%20%20%20%20%20%20%20//%20%20undefined%20behavior%20results%20when%20statements%20are%20not%20semicolon%20delimited.%0A%20%20%20%20%20%20%20%20if(token.val()%20===%20';'%20&&%20global)%7B%0A%20%20%20%20%20%20%20%20%20%20%20%20break;%0A%20%20%20%20%20%20%20%20%7D%0A%20%20%20%20%7D%0A%20%20%20%20return%20tokens;%0A%20%20%7D%20//%20end%20parse()%0A%0A%20%20let%20indices%20=%20%7B%7D;%0A%20%20let%20indices_to_arrays%20=%20%7B%7D;%0A%20%20let%20tokens%20=%20parse(ctx,%20indices,%20indices_to_arrays,%20true);%0A%20%20if(tokens.length%20===%201%20&&%20tokens%5B0%5D.isBraces())%7B%0A%20%20%20%20tokens%20=%20parse(tokens%5B0%5D.inner(),%20indices,%20indices_to_arrays);%0A%20%20%7D%0A%20%20%0A%20%20let%20statement%20=%20#%60%60;%0A%20%20for%20(let%20token%20of%20tokens)%7B%0A%20%20%20%20statement%20=%20#%60$%7Bstatement%7D%20$%7Btoken%7D%60;%0A%20%20%7D%0A%20%20let%20loop%20=%20statement;%0A%20%20for%20(let%20index_str%20of%20Object.keys(indices))%7B%0A%20%20%20%20let%20index%20=%20indices%5Bindex_str%5D;%0A%20%20%20%20let%20length%20=%20length_lookup%5Bindex_str%5D;%0A%20%20%20%20let%20array%20=%20indices_to_arrays%5Bindex_str%5D;%0A%20%20%20%20loop%20=%20#%60for(var%20$%7Bindex%7D=0,%20$%7Blength%7D=$%7Barray%7D.length;%20$%7Bindex%7D%20%3C%20$%7Blength%7D;%20$%7Bindex%7D++)%20%7B%20$%7Bloop%7D%20%7D%60;%0A%20%20%7D%0A%20%20%0A%20%20return%20loop;%0A%7D%0A%0A%0A%0A%0A%0Atensor%20foo%5Bi%5D%20=%20bar%5Bi%5D%20+%20baz%5Bj%5D;%0A)
+
 ###What is Index notation?
 
 Not familiar with index notation? Observe:
 
     foo[i][j] = bar[i] + baz[j]
 
-This is the sort of code you normally expect to see inside a double for loop. You know that because you see there are two index variables, `i` and `j`. `i` is used to iterate through bar, and `j` is used to iterate through baz. The lower bound of `i` and `j` is 0. The upper bound of `i` and `j` is determined by the size of their respective arrays. For every value in `bar` and `baz`, we populate a cell in `foo` with their sum. Simple. You know all this right away and you never looked at a single for loop. You pieced it all together through convention and reasoning. The for loops are just formality.
+This is the sort of code you normally expect to see inside a double for loop. You know that because you see there are two index variables, `i` and `j`. `i` is used to iterate through `bar`, and `j` is used to iterate through `baz`. The lower bound of `i` and `j` is 0. The upper bound of `i` and `j` is determined by the size of their respective arrays. For every value in `bar` and `baz`, we populate a cell in `foo` with their sum. Simple. 
+
+You know all this right away and you never looked at a single for loop. You pieced it all together through convention and reasoning. The for loops are just formality.
 
 Tensor index notation skips the formality. In tensor calculus, the "for loops" are implied by the index. There are a few other rules that govern its use in mathematics, but for our sake we will ignore them.
 
@@ -47,7 +51,7 @@ Another option is to copy sweet-tensors.sjs and setup a build process that conca
 
 Again replacing "your-file.sjs" with the file that uses the macro. You can see an example of this build process in the "demo.sjs" and "demo.sh" files included in the sweet-tensors project.
 
-If you're looking for more robust build tool, you may also consider the following options:
+If you're looking for a more robust build tool, you may also consider the following options:
 
 - [broccoli-sweet](https://github.com/sindresorhus/broccoli-sweetjs)
 - [grunt-sweet](https://github.com/natefaubion/grunt-sweet.js)
@@ -136,28 +140,22 @@ Other built in methods can be replicated, as well. The practicality is questiona
 
 	//		foo = bar.every(test_fn)
 	var foo = true;
-	tensor 	foo = foo && test_fn(foo[i]);
+	tensor 	foo = foo && test_fn(bar[i]);
 
 	//		foo = bar.some(test_fn)
 	var foo = false;
-	tensor 	foo = foo || test_fn(foo[i]);
+	tensor 	foo = foo || test_fn(bar[i]);
 
 It also allows you to easily borrow paradigms from other languages. Take for instance the [logical index vector](http://www.r-tutor.com/r-introduction/vector/logical-index-vector) in R:
 
-	//		strings <- c('a','b','c','d','e');
 	var		strings = ['a','b','c','d','e'];
-	//		bools 	<- c(false, true, false, true, false);
 	var		bools 	= [false, true, false, true, false];
-	//		filtered <- strings[bools];
 	var 	filtered = [];
 	tensor 	if(bools[i]) filtered.push( strings[i] );
 
 The numeric index vector:
-	//		strings <- c('a','b','c','d','e');
 	var		strings = ['a','b','c','d','e'];
-	//		nums 	<- c(2, 3, 5);
 	var		nums 	= [2, 3, 5];
-	//		filtered <- strings[nums];
 	var 	filtered = [];
 	tensor 	filtered.push( strings[nums[i]] );
 
@@ -166,7 +164,7 @@ Or the which() function:
 	var		bools 	= [false, true, false, true, false];
 	tensor 	if(bools[i]) which.push(i);
 
-And linear algebra is trivial, of course;
+And linear algebra is trivial, of course:
 
 	tensor 	a += b[i] * c[i]; 			// dot product
 	tensor 	a[i] = b[i] + c[i]; 		// addition
