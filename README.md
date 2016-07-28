@@ -72,17 +72,7 @@ A single block of tensor code will be wrapped in one `for` loop for every index 
 
 	tensor foo[i] = bar[map[i]] + baz[j-1] + k;
 
-In the example above, `map` is not an index because its name contains more than one letter. The constant `k` is not an index because it never occurs within a pair of brackets and we have no way to determine its upper bound. The variable `i` is indeed an index because it is a single letter variable and it occurs at least once by itself in a pair of brackets. 
-
-The index variable must occur at least once on its own inside the brackets. In the following code:
-
-    tensor penultimate = array[i-1];
-
-`i` is not recognized as an index because when it occurs inside the brackets it is accompanied by a `-1`. It is not certain in the general case for the macro to know what the bounds of `i` should be. On the other hand,
-
-	tensor if(i>0) diff[i-1] = foo[i] - foo[i-1];
-
-`i` is an index in the example above because there is one instance where it occurs alone in a pair of brackets: `foo[i]`. 
+In the example above, `map` is not an index because its name contains more than one letter. The constant `k` is not an index because it never occurs within a pair of brackets and we have no way to determine its upper bound. The variable `j` is not an index because when it occurs inside the brackets it is accompanied by a `-1`, and it is not certain in the general case for the macro to know what the bounds of `j` should be. The variable `i` is indeed an index because it is a single letter variable and it occurs at least once by itself in a pair of brackets. 
 
 The lower bound of an index is always 0. The upper bound of an index is determined by the length of the last array to use the index. In the following code:
 
