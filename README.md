@@ -68,7 +68,7 @@ If you're looking for a more robust build tool, you may also consider the follow
 		foo[i][j] += baz[j]
 	}
 
-Within a single block of tensor code, all single letter variables act as indices, provided there is at least one occurrence of an index being wrapped alone in brackets. 
+A single block of tensor code will be wrapped in one `for` loop for every index that occurs in a block of code. Any single letter variable within the block of code will serve as an index, provided there is at least one occurrence where the index is wrapped alone in brackets. 
 
 	tensor foo[i] = bar[map[i]] + baz[j-1] + k;
 
