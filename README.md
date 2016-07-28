@@ -152,6 +152,7 @@ It also allows you to easily borrow paradigms from other languages. Take for ins
 	tensor 	if(bools[i]) filtered.push( strings[i] );
 
 The numeric index vector:
+
 	var		strings = ['a','b','c','d','e'];
 	var		nums 	= [2, 3, 5];
 	var 	filtered = [];
