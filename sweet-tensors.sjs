@@ -90,7 +90,27 @@ syntax tensor = ( function() {
     }
   }
 
-  let get_indices = function(tokens, indices, indices_to_arrays) {
+
+  let tokens_hash = function(tokens) {
+    return tokens.map(token => token.val()).join('');
+  }
+  let multidict = {
+    add: function(multidict, key, added) {
+      multidict[key] = multidict[key] || [];
+      multidict[key].push(added);
+    }
+  }
+  let multiset = {
+    add: function(multiset, added) {
+      multiset[added] = multiset[added] || 0;
+      multiset[added]++;
+    }
+  }
+
+  let get_indices = function(tokens, indices, indices_to_arrays, array_counts) {
+    if(indices === void 0)           indices = {};
+    if(indices_to_arrays === void 0) indices_to_arrays = {};
+    if(array_counts === void 0)      array_counts = {};
 
     let subtokens = [];
     let last_indexible = [];
@@ -100,16 +120,17 @@ syntax tensor = ( function() {
 
       if (token.isDelimiter()){
         subtokens = tokenize(token.inner());
-        get_indices(subtokens, indices, indices_to_arrays);
+        get_indices(subtokens, indices, indices_to_arrays, array_counts);
       }
-
+      
       // check for tensor index within []
       if (isTensorIndex(token, subtokens)){
           let index = subtokens[0];
           indices[index.val()] = index;
-          indices_to_arrays[index.val()] = last_indexible.slice(0);
+          multidict.add(indices_to_arrays, index.val(), last_indexible.slice(0));
+          multiset.add(array_counts, tokens_hash(last_indexible));
       }
-
+      
       // compile a list of array values formed over multiple tokens,
       //  e.g. this.foo[i].getBar()[j]
       if (isIndexible(token)) {
@@ -118,13 +139,14 @@ syntax tensor = ( function() {
           last_indexible = [];
       }
     }
+    return Object.keys(indices);
   }
-
 
 
   return function (ctx) {
     let indices = {};
     let indices_to_arrays = {};
+    let array_counts = {};
 
     let tokens = tokenize(ctx);
     let consumed;
@@ -138,17 +160,43 @@ syntax tensor = ( function() {
 
     consume_tokens(ctx, consumed);
 
-    get_indices(tokens, indices, indices_to_arrays);
+    get_indices(tokens, indices, indices_to_arrays, array_counts);
 
-    let statement = #``;
-    for (let token of tokens){
-      statement = #`${statement} ${token}`;
-    }
-    let loop = statement;
-    for (let index_str of Object.keys(indices)){
+    // Wrap the block of code in a for loop
+    let loop = #`${tokens}`;
+    let index_strs = Object.keys(indices).slice(0);
+
+    let index_strs_sans_dependencies = index_strs
+      .filter(function(i){
+        let arrays = indices_to_arrays[i];
+        return arrays
+              .filter(array => get_indices(array).length === 0)
+              .length > 0;
+      });
+    let index_strs_with_dependencies = index_strs
+      .filter(function(i){
+        let arrays = indices_to_arrays[i];
+        return arrays
+              .filter(array => get_indices(array).length === 0)
+              .length <= 0;
+      });
+
+    let index_strs_sorted = [].concat.apply([], 
+      [index_strs_with_dependencies, 
+       index_strs_sans_dependencies] );
+
+    for (let index_str of index_strs_sorted){
       let index = indices[index_str];
       let length = length_lookup[index_str];
-      let array = indices_to_arrays[index_str];
+      let arrays = indices_to_arrays[index_str];
+
+      // don't refer arrays with indices if you can help it
+      let arrays_sans_indices = arrays
+            .filter(array => get_indices(array).length === 0);  
+      if (arrays_sans_indices.length > 0) arrays = arrays_sans_indices;
+
+      let array = arrays.sort((a,b) => a.length - b.length)[0];
+
       loop = #`for(var ${index}=0, ${length}=${array}.length; ${index} < ${length}; ${index}++) { ${loop} }`;
     }
     
@@ -156,3 +204,6 @@ syntax tensor = ( function() {
     // return #`boo`;
   }
 })();
+
+
+tensor  a[i][k] += b[i][j] * c[j][k]; // matrix * matrix
