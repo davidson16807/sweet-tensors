@@ -142,6 +142,9 @@ syntax tensor = ( function() {
     return Object.keys(indices);
   }
 
+  let get_independant_arrays = function(arrays) {
+    return arrays.filter(array => get_indices(array).length === 0);
+  }
 
   return function (ctx) {
     let indices = {};
@@ -169,16 +172,12 @@ syntax tensor = ( function() {
     let index_strs_sans_dependencies = index_strs
       .filter(function(i){
         let arrays = indices_to_arrays[i];
-        return arrays
-              .filter(array => get_indices(array).length === 0)
-              .length > 0;
+        return get_independant_arrays(arrays).length > 0;
       });
     let index_strs_with_dependencies = index_strs
       .filter(function(i){
         let arrays = indices_to_arrays[i];
-        return arrays
-              .filter(array => get_indices(array).length === 0)
-              .length <= 0;
+        return get_independant_arrays(arrays).length <= 0;
       });
 
     let index_strs_sorted = [].concat.apply([], 
@@ -191,8 +190,7 @@ syntax tensor = ( function() {
       let arrays = indices_to_arrays[index_str];
 
       // don't refer arrays with indices if you can help it
-      let arrays_sans_indices = arrays
-            .filter(array => get_indices(array).length === 0);  
+      let arrays_sans_indices = get_independant_arrays(arrays)
       if (arrays_sans_indices.length > 0) arrays = arrays_sans_indices;
 
       let array = arrays.sort((a,b) => a.length - b.length)[0];
@@ -206,4 +204,3 @@ syntax tensor = ( function() {
 })();
 
 
-tensor  a[i][k] += b[i][j] * c[j][k]; // matrix * matrix
