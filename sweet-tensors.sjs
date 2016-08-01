@@ -142,14 +142,25 @@ syntax tensor = ( function() {
     return Object.keys(indices);
   }
 
-  let is_independant_array = function(array) {
+  let is_array_independant = function(array) {
     return get_indices(array).length === 0;
   }
-  let is_dependant_on_index = function(array, i) {
+  let is_array_dependant_on_index = function(array, i) {
     return get_indices(array).includes(i);
   }
-  let is_dependant_on_indices = function(array, indices) {
-    return get_indices(array).includes(i);
+  let is_array_dependant_on_indices = function(array, indices) {
+    return indices.some(i => get_indices(array).includes(i));
+  }
+  let is_index_independant = function(i, indices_to_arrays) {
+    return indices_to_arrays[i].some(is_array_independant);
+  }
+  let is_index_dependant_on_index = function(i, j, indices_to_arrays) {
+    return indices_to_arrays[i]
+            .some(array =>  is_array_dependant_on_index(array, j));
+  }
+  let is_index_dependant_on_indices = function(i, indices, indices_to_arrays) {
+    return indices_to_arrays[i]
+            .some(array =>  is_array_dependant_on_indices(array, indices));
   }
 
   return function (ctx) {
@@ -175,18 +186,23 @@ syntax tensor = ( function() {
     let loop = #`${tokens}`;
     let index_strs = Object.keys(indices).slice(0);
 
-    let index_strs_sans_dependencies = index_strs
-      .filter(function(i){
-        return indices_to_arrays[i].some(is_independant_array);
-      });
-    let index_strs_with_dependencies = index_strs
-      .filter(function(i){
-        return !indices_to_arrays[i].some(is_independant_array);
-      });
+    // determine the order needed to nest the loops 
+    // order is determined based upon dependency
+    let independant_indices = index_strs
+      .filter( i => indices_to_arrays[i].some(is_array_independant) );
+    let index_strs_sorted = independant_indices;  
+    let remaining_indices = index_strs
+      .filter( i => !independant_indices.includes(i) );
 
-    let index_strs_sorted = [].concat.apply([], 
-      [index_strs_with_dependencies, 
-       index_strs_sans_dependencies] );
+    while (remaining_indices.length > 0) {
+      let dependant_indices = remaining_indices
+        .filter( i => indices_to_arrays[i]
+                        .some(array =>  is_array_dependant_on_indices(array, index_strs_sorted) &&
+                                       !is_array_dependant_on_indices(array, remaining_indices) )  );
+      remaining_indices = remaining_indices
+        .filter( i => !dependant_indices.includes(i) );
+      index_strs_sorted = [].concat(dependant_indices, index_strs_sorted);
+    } ;
 
     for (let index_str of index_strs_sorted){
       let index = indices[index_str];
@@ -194,7 +210,7 @@ syntax tensor = ( function() {
       let arrays = indices_to_arrays[index_str];
 
       // don't refer arrays with indices if you can help it
-      let arrays_sans_indices = arrays.filter(is_independant_array);
+      let arrays_sans_indices = arrays.filter(is_array_independant);
       if (arrays_sans_indices.length > 0) arrays = arrays_sans_indices;
 
       let array = arrays.sort((a,b) => a.length - b.length)[0];
@@ -208,3 +224,4 @@ syntax tensor = ( function() {
 })();
 
 
+// tensor  a[i][k] += b[i][j] * c[j][k]; // matrix * matrix
