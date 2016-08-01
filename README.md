@@ -68,17 +68,33 @@ If you're looking for a more robust build tool, you may also consider the follow
 		foo[i][j] += baz[j]
 	}
 
-A single block of tensor code will be wrapped in one `for` loop for every index that occurs in a block of code. Any single letter variable within the block of code will serve as an index, provided there is at least one occurrence where the index is wrapped alone in brackets. 
+**A single block of tensor code will be wrapped in one `for` loop for every index that occurs within the block.**
+
+An **"index"** is defined as any single letter variable that occurs at least once alone in brackets. 
 
 	tensor foo[i] = bar[map[i]] + baz[j-1] + k;
 
 In the example above, `map` is not an index because its name contains more than one letter. The constant `k` is not an index because it never occurs within a pair of brackets and we have no way to determine its upper bound. The variable `j` is not an index because when it occurs inside the brackets it is accompanied by a `-1`, and it is not certain in the general case for the macro to know what the bounds of `j` should be. The variable `i` is indeed an index because it is a single letter variable and it occurs at least once by itself in a pair of brackets. 
 
-The lower bound of an index is always 0. The upper bound of an index is determined by the length of the last array to use the index. In the following code:
+The block of code will be wrapped in one `for` loop **for every index within the block**. The order with which the for loops are applied will depend on whether any index relies on another to ascertain its upper bounds. Take for instance the following statement:
 
-	tensor foo[i] = bar[map[i]];
+	tensor f( foo[j][i] );
 
-The upper bound of `i` is set to `map.length` because `map` was the last array to use the index in the statement. It is up to the user to ensure `foo` is the same size as `map`.
+The upper bound of i is determined by `foo[j].length`. This means that index `i` has a dependency on index `j`. The `for` loop for `i` has to reside within the `for` loop for `j`, so the statement above will expand out to the following:
+
+	for (var j = 0, lj = foo.length; j < lj; j++) {
+	  for (var i = 0, li = foo[j].length; i < li; i++) {
+	    f(foo[j][i]);
+	  }
+	}
+
+In the event no dependencies exist between indices, the order of their `for` loops is arbitrary.
+
+The lower bound of an index is always 0. The upper bound of an index is determined through the length of a single array where the index is used. In the event there are multiple arrays to choose from, the macro will avoid using multi-dimensional arrays and arrays that are returned from functions. In the following code:
+
+	tensor foo[j][i] = bar[i] + baz()[i];
+
+The upper bound of `i` is set to `bar.length`. The macro could use `foo[j].length`, but chooses not to because this would be inefficient. The macro could use `baz().length`, but chooses not to because calling baz() may introduce unwanted side-effects. It is up to the user to ensure `foo[j]` is always same size as `bar` and `baz()`. It is also up to the user to ensure functions such as `baz()` do not contain side effects. 
 
 The upper bound of an index can be retrieved by appending "l" to the start of the variable name, e.g., the upper bound of index `i` is `li`. This is sometimes a more efficient way to retrieve the length of an array because it is not reevaluated at every invocation, as it would be with `.length`.
 
@@ -134,7 +150,7 @@ Other built in methods can be replicated, as well. The practicality is questiona
 	var foo = false;
 	tensor 	foo = foo || test_fn(bar[i]);
 
-It also allows you to easily borrow paradigms from other languages. Take for instance the [logical index vector](http://www.r-tutor.com/r-introduction/vector/logical-index-vector) in R:
+The macro also allows you to easily borrow paradigms from other languages. Take for instance the [logical index vector](http://www.r-tutor.com/r-introduction/vector/logical-index-vector) in R:
 
 	var		strings = ['a','b','c','d','e'];
 	var		bools 	= [false, true, false, true, false];
