@@ -142,14 +142,17 @@ syntax tensor = ( function() {
     return Object.keys(indices);
   }
 
-  let is_array_using_parens = function(array) {
-    return array.some(token => token.isParens());
+  let is_array_sans_parens = function(array) {
+    return !array.some(token => token.isParens());
   }
-  let is_array_using_brackets = function(array) {
-    return array.some(token => token.isBrackets());
+  let is_array_sans_brackets = function(array) {
+    return !array.some(token => token.isBrackets());
   }
   let is_array_independant = function(array) {
     return get_indices(array).length === 0;
+  }
+  let is_array_not_reevaluated = function(array) {
+    return array.length === 1;
   }
   let is_array_dependant_on_index = function(array, i) {
     return get_indices(array).includes(i);
@@ -198,19 +201,24 @@ syntax tensor = ( function() {
       let arrays = filtered_indices_to_arrays[index_str];
 
       // don't refer to arrays with parens if you can help it
-      let arrays_sans_parens = arrays
-        .filter( is_array_using_parens );
+      let arrays_sans_parens = filtered_indices_to_arrays[index_str]
+        .filter( is_array_sans_parens );
       if (arrays_sans_parens.length > 0) filtered_indices_to_arrays[index_str] = arrays_sans_parens;
 
       // don't refer to arrays with brackets if you can help it
-      let arrays_sans_brackets = arrays
-        .filter( is_array_using_brackets );
+      let arrays_sans_brackets = filtered_indices_to_arrays[index_str]
+        .filter( is_array_sans_brackets );
       if (arrays_sans_brackets.length > 0) filtered_indices_to_arrays[index_str] = arrays_sans_brackets;
 
       // don't refer to arrays with dependencies if you can help it
-      let arrays_sans_indices = arrays
+      let arrays_sans_indices = filtered_indices_to_arrays[index_str]
         .filter( is_array_independant );
       if (arrays_sans_indices.length > 0) filtered_indices_to_arrays[index_str] = arrays_sans_indices;
+
+      // don't refer to arrays with more than one token if you can help it
+      let arrays_not_reevaluated = filtered_indices_to_arrays[index_str]
+        .filter( is_array_not_reevaluated );
+      if (arrays_not_reevaluated.length > 0) filtered_indices_to_arrays[index_str] = arrays_not_reevaluated;
 
     }
 
@@ -250,4 +258,4 @@ syntax tensor = ( function() {
 })();
 
 
-// tensor  a[i][k] += b[i][j] * c[j][k]; // matrix * matrix
+tensor  a[i][k] += b[i][j] * c[j][k]; // matrix * matrix
