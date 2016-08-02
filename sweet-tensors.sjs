@@ -142,6 +142,12 @@ syntax tensor = ( function() {
     return Object.keys(indices);
   }
 
+  let is_array_using_parens = function(array) {
+    return array.some(token => token.isParens());
+  }
+  let is_array_using_brackets = function(array) {
+    return array.some(token => token.isBrackets());
+  }
   let is_array_independant = function(array) {
     return get_indices(array).length === 0;
   }
@@ -165,9 +171,11 @@ syntax tensor = ( function() {
 
   return function (ctx) {
     let indices = {};
+    let filtered_indices_to_arrays = {};
     let indices_to_arrays = {};
     let array_counts = {};
 
+    //gather tokens and decide whether code block is single statement or curly-bracketed
     let tokens = tokenize(ctx);
     let consumed;
     if(tokens[0].isBraces()){
@@ -181,37 +189,56 @@ syntax tensor = ( function() {
     consume_tokens(ctx, consumed);
 
     get_indices(tokens, indices, indices_to_arrays, array_counts);
+    get_indices(tokens, {}, filtered_indices_to_arrays, {});
 
-    // Wrap the block of code in a for loop
-    let loop = #`${tokens}`;
     let index_strs = Object.keys(indices).slice(0);
+
+    // clean up indices_to_arrays
+    for (let index_str of index_strs){
+      let arrays = filtered_indices_to_arrays[index_str];
+
+      // don't refer to arrays with parens if you can help it
+      let arrays_sans_parens = arrays
+        .filter( is_array_using_parens );
+      if (arrays_sans_parens.length > 0) filtered_indices_to_arrays[index_str] = arrays_sans_parens;
+
+      // don't refer to arrays with brackets if you can help it
+      let arrays_sans_brackets = arrays
+        .filter( is_array_using_brackets );
+      if (arrays_sans_brackets.length > 0) filtered_indices_to_arrays[index_str] = arrays_sans_brackets;
+
+      // don't refer to arrays with dependencies if you can help it
+      let arrays_sans_indices = arrays
+        .filter( is_array_independant );
+      if (arrays_sans_indices.length > 0) filtered_indices_to_arrays[index_str] = arrays_sans_indices;
+
+    }
 
     // determine the order needed to nest the loops 
     // order is determined based upon dependency
+    // see readme for more info
     let independant_indices = index_strs
-      .filter( i => indices_to_arrays[i].some(is_array_independant) );
+      .filter( i => filtered_indices_to_arrays[i].some(is_array_independant) );
     let index_strs_sorted = independant_indices;  
     let remaining_indices = index_strs
       .filter( i => !independant_indices.includes(i) );
 
     while (remaining_indices.length > 0) {
       let dependant_indices = remaining_indices
-        .filter( i => indices_to_arrays[i]
+        .filter( i => filtered_indices_to_arrays[i]
                         .some(array =>  is_array_dependant_on_indices(array, index_strs_sorted) &&
                                        !is_array_dependant_on_indices(array, remaining_indices) )  );
       remaining_indices = remaining_indices
         .filter( i => !dependant_indices.includes(i) );
       index_strs_sorted = [].concat(dependant_indices, index_strs_sorted);
-    } ;
+    };
 
+    // wrap the code block in one for loop for each index
+    let loop = #`${tokens}`;
     for (let index_str of index_strs_sorted){
       let index = indices[index_str];
       let length = length_lookup[index_str];
-      let arrays = indices_to_arrays[index_str];
-
-      // don't refer arrays with indices if you can help it
-      let arrays_sans_indices = arrays.filter(is_array_independant);
-      if (arrays_sans_indices.length > 0) arrays = arrays_sans_indices;
+      let arrays = filtered_indices_to_arrays[index_str];
 
       let array = arrays.sort((a,b) => a.length - b.length)[0];
 
@@ -219,7 +246,6 @@ syntax tensor = ( function() {
     }
     
     return loop;
-    // return #`boo`;
   }
 })();
 
