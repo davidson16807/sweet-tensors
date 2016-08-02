@@ -41,7 +41,7 @@ syntax tensor = ( function() {
   }
 
   let parse_statement = function(tokens, pos){
-    let binary = ['.','+','-','/','*','%','<','>','&','|','^','&&','||','~','<<','>>','>>>'];
+    let binary = ['=','.','+','-','/','*','%','<','>','&','|','^','&&','||','~','<<','>>','>>>'];
     let unary = ['++', '--'];
     let statement = [];
 
