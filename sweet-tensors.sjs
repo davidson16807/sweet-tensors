@@ -94,13 +94,13 @@ syntax tensor = ( function() {
   let tokens_hash = function(tokens) {
     return tokens.map(token => token.val()).join('');
   }
-  let multidict = {
+  let Multidict = {
     add: function(multidict, key, added) {
       multidict[key] = multidict[key] || [];
       multidict[key].push(added);
     }
   }
-  let multiset = {
+  let Multiset = {
     add: function(multiset, added) {
       multiset[added] = multiset[added] || 0;
       multiset[added]++;
@@ -127,8 +127,8 @@ syntax tensor = ( function() {
       if (isTensorIndex(token, subtokens)){
           let index = subtokens[0];
           indices[index.val()] = index;
-          multidict.add(indices_to_arrays, index.val(), last_indexible.slice(0));
-          multiset.add(array_counts, tokens_hash(last_indexible));
+          Multidict.add(indices_to_arrays, index.val(), last_indexible.slice(0));
+          Multiset.add(array_counts, tokens_hash(last_indexible));
       }
       
       // compile a list of array values formed over multiple tokens,
@@ -142,34 +142,37 @@ syntax tensor = ( function() {
     return Object.keys(indices);
   }
 
-  let is_array_sans_parens = function(array) {
-    return !array.some(token => token.isParens());
-  }
-  let is_array_sans_brackets = function(array) {
-    return !array.some(token => token.isBrackets());
-  }
-  let is_array_independant = function(array) {
-    return get_indices(array).length === 0;
-  }
-  let is_array_not_reevaluated = function(array) {
-    return array.length === 1;
-  }
-  let is_array_dependant_on_index = function(array, i) {
-    return get_indices(array).includes(i);
-  }
-  let is_array_dependant_on_indices = function(array, indices) {
-    return indices.some(i => get_indices(array).includes(i));
-  }
+  let Array = {
+	has_no_parens: function(array) {
+    	return !array.some(token => token.isParens());
+  	},
+	has_no_brackets: function(array) {
+    	return !array.some(token => token.isBrackets());
+  	},
+	is_not_reevaluated: function(array) {
+    	return array.length === 1;
+  	},
+	is_independant: function(array) {
+    	return get_indices(array).length === 0;
+  	},
+	is_dependant_on_index: function(array, i) {
+    	return get_indices(array).includes(i);
+  	},
+	is_dependant_on_indices: function(array, indices) {
+    	return indices.some(i => get_indices(array).includes(i));
+  	}  	
+  };
+
   let is_index_independant = function(i, indices_to_arrays) {
-    return indices_to_arrays[i].some(is_array_independant);
+    return indices_to_arrays[i].some(Array.is_independant);
   }
   let is_index_dependant_on_index = function(i, j, indices_to_arrays) {
     return indices_to_arrays[i]
-            .some(array =>  is_array_dependant_on_index(array, j));
+            .some(array =>  Array.is_dependant_on_index(array, j));
   }
   let is_index_dependant_on_indices = function(i, indices, indices_to_arrays) {
     return indices_to_arrays[i]
-            .some(array =>  is_array_dependant_on_indices(array, indices));
+            .some(array =>  Array.is_dependant_on_indices(array, indices));
   }
 
   return function (ctx) {
@@ -202,22 +205,22 @@ syntax tensor = ( function() {
 
       // don't refer to arrays with parens if you can help it
       let arrays_sans_parens = filtered_indices_to_arrays[index_str]
-        .filter( is_array_sans_parens );
+        .filter( Array.has_no_parens );
       if (arrays_sans_parens.length > 0) filtered_indices_to_arrays[index_str] = arrays_sans_parens;
 
       // don't refer to arrays with brackets if you can help it
       let arrays_sans_brackets = filtered_indices_to_arrays[index_str]
-        .filter( is_array_sans_brackets );
+        .filter( Array.has_no_brackets );
       if (arrays_sans_brackets.length > 0) filtered_indices_to_arrays[index_str] = arrays_sans_brackets;
 
       // don't refer to arrays with dependencies if you can help it
       let arrays_sans_indices = filtered_indices_to_arrays[index_str]
-        .filter( is_array_independant );
+        .filter( Array.is_independant );
       if (arrays_sans_indices.length > 0) filtered_indices_to_arrays[index_str] = arrays_sans_indices;
 
       // don't refer to arrays with more than one token if you can help it
       let arrays_not_reevaluated = filtered_indices_to_arrays[index_str]
-        .filter( is_array_not_reevaluated );
+        .filter( Array.is_not_reevaluated );
       if (arrays_not_reevaluated.length > 0) filtered_indices_to_arrays[index_str] = arrays_not_reevaluated;
 
     }
@@ -226,7 +229,7 @@ syntax tensor = ( function() {
     // order is determined based upon dependency
     // see readme for more info
     let independant_indices = index_strs
-      .filter( i => filtered_indices_to_arrays[i].some(is_array_independant) );
+      .filter( i => filtered_indices_to_arrays[i].some(Array.is_independant) );
     let index_strs_sorted = independant_indices;  
     let remaining_indices = index_strs
       .filter( i => !independant_indices.includes(i) );
@@ -234,8 +237,8 @@ syntax tensor = ( function() {
     while (remaining_indices.length > 0) {
       let dependant_indices = remaining_indices
         .filter( i => filtered_indices_to_arrays[i]
-                        .some(array =>  is_array_dependant_on_indices(array, index_strs_sorted) &&
-                                       !is_array_dependant_on_indices(array, remaining_indices) )  );
+                        .some(array =>  Array.is_dependant_on_indices(array, index_strs_sorted) &&
+                                       !Array.is_dependant_on_indices(array, remaining_indices) )  );
       remaining_indices = remaining_indices
         .filter( i => !dependant_indices.includes(i) );
       index_strs_sorted = [].concat(dependant_indices, index_strs_sorted);
