@@ -162,6 +162,30 @@ syntax tensor = ( function() {
     	return indices.some(i => get_indices(array).includes(i));
   	}  	
   };
+  TokenArray.indexOf = function (match, tokens, from_index) {
+      loop: for (let i = from_index >>> 0, li = tokens.length + 1 - jl; i<li; i++) {
+          for (let j=0, jl = match.length; j<jl; j++)
+              if (tokens[i+j] !== match[j])
+                  continue loop;
+          return i;
+      }
+      return -1;
+  }
+  TokenArray.replace = function (replaced, replacement, within) {
+    let index = 0;
+    let tokens = within;
+    do{
+      index = TokenArray.indexOf(replaced, tokens, index);
+      if (index !== -1) {
+        tokens = [
+          ...tokens.slice(0, index), 
+          ...replacement, 
+          ...tokens.slice(index + replaced.length)
+        ];
+      } 
+    } while (index !== -1);
+    return tokens;
+  }
 
   let is_index_independant = function(i, indices_to_arrays) {
     return indices_to_arrays[i].some(Array.is_independant);
