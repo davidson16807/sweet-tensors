@@ -174,17 +174,29 @@ syntax tensor = ( function() {
   }
   TokenArray.replace = function (replaced, replacement, within) {
     let index = 0;
-    let tokens = within;
-    do{
+    let i = 0;
+    let tokens = within.slice(0);
+    while (true){
       index = TokenArray.indexOf(replaced, tokens, index);
+      //for (i = 0, li = index !== -1? index : tokens.length; i < li; i++){
+      //  let token = tokens[i];
+      //	if(token.isDelimiter()){
+	  //    let subtokens = tokenize(token.inner());
+	  //    subtokens = TokenArray.replace(replaced, replacement, subtokens);
+	  //    token = #`${subtokens}`;
+	  //    tokens[i] = token;
+      //	}
+      //}
       if (index !== -1) {
         tokens = [
           ...tokens.slice(0, index), 
           ...replacement, 
           ...tokens.slice(index + replaced.length)
         ];
+        break;
       } 
-    } while (index !== -1);
+    } ;
+
     return tokens;
   }
 
@@ -284,4 +296,4 @@ syntax tensor = ( function() {
 })();
 
 
-//tensor  a[i][k] += b[i][j] * c[j][k]; // matrix * matrix
+tensor  a[i][k] += b[i][j] * c[j][k]; // matrix * matrix
