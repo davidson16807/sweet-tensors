@@ -41,7 +41,7 @@ syntax tensor = ( function() {
   }
 
   let parse_statement = function(tokens, pos){
-    let binary = ['=','.','+','-','/','*','%','<','>','&','|','^','&&','||','~','<<','>>','>>>'];
+    let binary = ['.','+','-','/','*','%','<','>','&','|','^','&&','||','~','<<','>>','>>>'];
     let unary = ['++', '--'];
     let statement = [];
 
@@ -94,23 +94,49 @@ syntax tensor = ( function() {
   let tokens_hash = function(tokens) {
     return tokens.map(token => token.val()).join('');
   }
-  let Multidict = {
+  let multidict = {
     add: function(multidict, key, added) {
       multidict[key] = multidict[key] || [];
       multidict[key].push(added);
+    },
+    values: function(multidict_) {
+      let nested_values = [];
+      let multidict_keys = Object.keys(multidict_).slice(0);
+      for(let key of multidict_keys){
+        nested_values.push(multidict_[key]);
+      }
+      return [].concat.apply([], nested_values);
     }
   }
-  let Multiset = {
+  let multiset = {
     add: function(multiset, added) {
       multiset[added] = multiset[added] || 0;
       multiset[added]++;
     }
   }
 
-  let get_indices = function(tokens, indices, indices_to_indexible, indexible_counts) {
+  let TokenArray = {};
+  TokenArray.indexOf = function (match, tokens, from_index) {
+      let li = tokens.length + 1 - match.length;
+      let jl = match.length;
+      loop: for (let i = from_index >>> 0; i<li; i++) {
+          for (let j=0; j<jl; j++)
+              if (tokens[i+j] !== match[j])
+                  continue loop;
+          return i;
+      }
+      return -1;
+  }
+  TokenArray.replace = function (replaced, replacement, within) {
+    let index = 0;
+    let i = 0;
+
+    return tokens;
+  }
+  let get_indices = function(tokens, indices, indices_to_arrays, array_counts) {
     if(indices === void 0)           indices = {};
-    if(indices_to_indexible === void 0) indices_to_indexible = {};
-    if(indexible_counts === void 0)      indexible_counts = {};
+    if(indices_to_arrays === void 0) indices_to_arrays = {};
+    if(array_counts === void 0)      array_counts = {};
 
     let subtokens = [];
     let last_indexible = [];
@@ -120,15 +146,15 @@ syntax tensor = ( function() {
 
       if (token.isDelimiter()){
         subtokens = tokenize(token.inner());
-        get_indices(subtokens, indices, indices_to_indexible, indexible_counts);
+        get_indices(subtokens, indices, indices_to_arrays, array_counts);
       }
       
       // check for tensor index within []
       if (isTensorIndex(token, subtokens)){
           let index = subtokens[0];
           indices[index.val()] = index;
-          Multidict.add(indices_to_indexible, index.val(), last_indexible.slice(0));
-          Multiset.add(indexible_counts, tokens_hash(last_indexible));
+          multidict.add(indices_to_arrays, index.val(), last_indexible.slice(0));
+          multiset.add(array_counts, tokens_hash(last_indexible));
       }
       
       // compile a list of array values formed over multiple tokens,
@@ -142,83 +168,38 @@ syntax tensor = ( function() {
     return Object.keys(indices);
   }
 
-  let Indexible = {
-	has_no_parens: function(array) {
-    	return !array.some(token => token.isParens());
-  	},
-	has_no_brackets: function(array) {
-    	return !array.some(token => token.isBrackets());
-  	},
-	is_not_reevaluated: function(array) {
-    	return array.length === 1;
-  	},
-	is_independant: function(array) {
-    	return get_indices(array).length === 0;
-  	},
-	is_dependant_on_index: function(array, i) {
-    	return get_indices(array).includes(i);
-  	},
-	is_dependant_on_indices: function(array, indices) {
-    	return indices.some(i => get_indices(array).includes(i));
-  	}  	
-  };
-  let TokenArray = {};
-  TokenArray.indexOf = function (match, tokens, from_index) {
-      loop: for (let i = from_index >>> 0, li = tokens.length + 1 - jl; i<li; i++) {
-          for (let j=0, jl = match.length; j<jl; j++)
-              if (tokens[i+j] !== match[j])
-                  continue loop;
-          return i;
-      }
-      return -1;
+  let is_array_independant = function(array) {
+    return get_indices(array).length === 0;
   }
-  TokenArray.replace = function (replaced, replacement, within) {
-    let index = 0;
-    let i = 0;
-    let tokens = within.slice(0);
-    while (true){
-      index = TokenArray.indexOf(replaced, tokens, index);
-      //for (i = 0, li = index !== -1? index : tokens.length; i < li; i++){
-      //  let token = tokens[i];
-      //	if(token.isDelimiter()){
-	  //    let subtokens = tokenize(token.inner());
-	  //    subtokens = TokenArray.replace(replaced, replacement, subtokens);
-	  //    token = #`${subtokens}`;
-	  //    tokens[i] = token;
-      //	}
-      //}
-      if (index !== -1) {
-        tokens = [
-          ...tokens.slice(0, index), 
-          ...replacement, 
-          ...tokens.slice(index + replaced.length)
-        ];
-        break;
-      } 
-    } ;
-
-    return tokens;
+  let is_array_dependant_on_index = function(array, i) {
+    return get_indices(array).includes(i);
   }
-
-  let is_index_independant = function(i, indices_to_indexible) {
-    return indices_to_indexible[i].some(Indexible.is_independant);
+  let is_array_dependant_on_indices = function(array, indices) {
+    return indices.some(i => get_indices(array).includes(i));
   }
-  let is_index_dependant_on_index = function(i, j, indices_to_indexible) {
-    return indices_to_indexible[i]
-            .some(array =>  Indexible.is_dependant_on_index(array, j));
+  let is_index_independant = function(i, indices_to_arrays) {
+    return indices_to_arrays[i].some(is_array_independant);
   }
-  let is_index_dependant_on_indices = function(i, indices, indices_to_indexible) {
-    return indices_to_indexible[i]
-            .some(array =>  Indexible.is_dependant_on_indices(array, indices));
+  let is_index_dependant_on_index = function(i, j, indices_to_arrays) {
+    return indices_to_arrays[i]
+            .some(array =>  is_array_dependant_on_index(array, j));
+  }
+  let is_index_dependant_on_indices = function(i, indices, indices_to_arrays) {
+    return indices_to_arrays[i]
+            .some(array =>  is_array_dependant_on_indices(array, indices));
+  }
+  let is_array_reevaluated = function(array) {
+    if (array.length > 1) {
+      return true;
+    }
+    return false;
   }
 
   return function (ctx) {
     let indices = {};
-    let filtered_indices_to_indexible = {};
-    let indices_to_indexible = {};
-    let indexible_counts = {};
+    let indices_to_arrays = {};
+    let array_counts = {};
 
-    //gather tokens and decide whether code block is single statement or curly-bracketed
     let tokens = tokenize(ctx);
     let consumed;
     if(tokens[0].isBraces()){
@@ -231,69 +212,49 @@ syntax tensor = ( function() {
 
     consume_tokens(ctx, consumed);
 
-    get_indices(tokens, indices, indices_to_indexible, indexible_counts);
-    get_indices(tokens, {}, filtered_indices_to_indexible, {});
+    get_indices(tokens, indices, indices_to_arrays, array_counts);
 
+
+    // Wrap the block of code in a for loop
+
+    let loop = #`${tokens}`;
     let index_strs = Object.keys(indices).slice(0);
-
-    // clean up indices_to_indexible
-    for (let index_str of index_strs){
-      // don't refer to indexibles with parens if you can help it
-      let indexibles_sans_parens = filtered_indices_to_indexible[index_str]
-        .filter( Indexible.has_no_parens );
-      if (indexibles_sans_parens.length > 0) filtered_indices_to_indexible[index_str] = indexibles_sans_parens;
-
-      // don't refer to indexibles with brackets if you can help it
-      let indexibles_sans_brackets = filtered_indices_to_indexible[index_str]
-        .filter( Indexible.has_no_brackets );
-      if (indexibles_sans_brackets.length > 0) filtered_indices_to_indexible[index_str] = indexibles_sans_brackets;
-
-      // don't refer to indexibles with dependencies if you can help it
-      let indexibles_sans_indices = filtered_indices_to_indexible[index_str]
-        .filter( Indexible.is_independant );
-      if (indexibles_sans_indices.length > 0) filtered_indices_to_indexible[index_str] = indexibles_sans_indices;
-
-      // don't refer to indexibles with more than one token if you can help it
-      let indexibles_not_reevaluated = filtered_indices_to_indexible[index_str]
-        .filter( Indexible.is_not_reevaluated );
-      if (indexibles_not_reevaluated.length > 0) filtered_indices_to_indexible[index_str] = indexibles_not_reevaluated;
-
-    }
 
     // determine the order needed to nest the loops 
     // order is determined based upon dependency
-    // see readme for more info
     let independant_indices = index_strs
-      .filter( i => filtered_indices_to_indexible[i].some(Indexible.is_independant) );
+      .filter( i => indices_to_arrays[i].some(is_array_independant) );
     let index_strs_sorted = independant_indices;  
     let remaining_indices = index_strs
-      .filter( i => !independant_indices.includes(i) );
+      .filter( i => independant_indices.indexOf(i) === -1 );
 
     while (remaining_indices.length > 0) {
       let dependant_indices = remaining_indices
-        .filter( i => filtered_indices_to_indexible[i]
-                        .some(indexible =>  Indexible.is_dependant_on_indices(indexible, index_strs_sorted) &&
-                                       !Indexible.is_dependant_on_indices(indexible, remaining_indices) )  );
+        .filter( i => indices_to_arrays[i]
+                        .some(array =>  is_array_dependant_on_indices(array, index_strs_sorted) &&
+                                       !is_array_dependant_on_indices(array, remaining_indices) )  );
       remaining_indices = remaining_indices
         .filter( i => !dependant_indices.includes(i) );
       index_strs_sorted = [].concat(dependant_indices, index_strs_sorted);
-    };
+    } ;
 
-    // wrap the code block in one for loop for each index
-    let loop = #`${tokens}`;
     for (let index_str of index_strs_sorted){
       let index = indices[index_str];
       let length = length_lookup[index_str];
-      let indexibles = filtered_indices_to_indexible[index_str];
+      let arrays = indices_to_arrays[index_str];
 
-      let indexible = indexibles.sort((a,b) => a.length - b.length)[0];
+      // don't refer arrays with indices if you can help it
+      let arrays_sans_indices = arrays.filter(is_array_independant);
+      if (arrays_sans_indices.length > 0) arrays = arrays_sans_indices;
 
-      loop = #`for(var ${index}=0, ${length}=${indexible}.length; ${index} < ${length}; ${index}++) { ${loop} }`;
+      let array = arrays.sort((a,b) => a.length - b.length)[0];
+
+      loop = #`for(var ${index}=0, ${length}=${array}.length; ${index} < ${length}; ${index}++) { ${loop} }`;
     }
     
     return loop;
+    // return #`boo`;
   }
 })();
 
 
-tensor  a[i][k] += b[i][j] * c[j][k]; // matrix * matrix
